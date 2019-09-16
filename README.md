@@ -7,7 +7,7 @@ A replicated [Akka Persistence](http://doc.akka.io/docs/akka/2.4.0/scala/persist
 - This plugin implements both a journal as well as a snapshot store,
 - Please note, however, that it does not include an Akka Persistence Query plugin.
 
-This plugin is "Community Driven" https://developer.lightbend.com/docs/lightbend-platform/introduction/getting-help/support-terminology.html#community-driven
+This plugin is [Community Driven](https://developer.lightbend.com/docs/lightbend-platform/introduction/getting-help/support-terminology.html#community-driven)
 
 Supported versions: 
 - Scala: `2.11.x` or `2.12.x`  
