@@ -199,7 +199,7 @@ class DynamoDBJournal(config: Config) extends AsyncWriteJournal with DynamoDBRec
     serialization.deserialize(ByteString(b).toArray, classOf[PersistentRepr]).get
   }
 
-  def logFailure[T](desc: String)(f: Future[T]): Future[T] = f.transform(conforms, ex => {
+  def logFailure[T](desc: String)(f: Future[T]): Future[T] = f.transform(identity, ex => {
     log.error(ex, "operation failed: " + desc)
     ex
   })

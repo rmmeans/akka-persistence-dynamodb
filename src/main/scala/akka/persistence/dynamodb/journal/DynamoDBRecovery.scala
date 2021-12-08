@@ -111,8 +111,7 @@ trait DynamoDBRecovery extends AsyncRecovery { this: DynamoDBJournal =>
     persistenceId:  String,
     fromSequenceNr: Long,
     toSequenceNr:   Long,
-    max:            Long
-  )(replayCallback: (PersistentRepr) => Unit): Future[Unit] =
+    max:            Long)(replayCallback: (PersistentRepr) => Unit): Future[Unit] =
     logFailure(s"replay for $persistenceId ($fromSequenceNr to $toSequenceNr)") {
       log.debug("starting replay for {} from {} to {} (max {})", persistenceId, fromSequenceNr, toSequenceNr, max)
       // toSequenceNr is already capped to highest and guaranteed to be no less than fromSequenceNr
@@ -121,10 +120,10 @@ trait DynamoDBRecovery extends AsyncRecovery { this: DynamoDBJournal =>
         Source(start to toSequenceNr)
           .grouped(MaxBatchGet)
           .mapAsync(ReplayParallelism)(batch => getReplayBatch(persistenceId, batch).map(_.sorted))
-          .mapConcat(conforms)
+          .mapConcat(identity)
           .take(max)
           .via(RemoveIncompleteAtoms)
-          .mapConcat(conforms)
+          .mapConcat(identity)
           .map(readPersistentRepr)
           .runFold(0) { (count, next) => replayCallback(next); count + 1 }
           .map(count => log.debug("replay finished for {} with {} events", persistenceId, count))
@@ -141,9 +140,8 @@ trait DynamoDBRecovery extends AsyncRecovery { this: DynamoDBJournal =>
     dynamo.batchGetItem(get).flatMap(getUnprocessedItems(_)).map {
       result =>
         ReplayBatch(
-          result.getResponses.get(JournalTable).asScala,
-          batchKeys.iterator.map(p => p._1.get(Key) -> p._2).toMap
-        )
+          result.getResponses.get(JournalTable).asScala.toSeq,
+          batchKeys.iterator.map(p => p._1.get(Key) -> p._2).toMap)
     }
   }
 
@@ -205,8 +203,7 @@ trait DynamoDBRecovery extends AsyncRecovery { this: DynamoDBJournal =>
   def readAllSequenceNr(persistenceId: String, highest: Boolean): Future[Set[Long]] =
     Future.sequence(
       readSequenceNrBatches(persistenceId, highest)
-        .map(_.map(getAllSeqNr).recover { case ex: Throwable => Nil })
-    )
+        .map(_.map(getAllSeqNr).recover { case ex: Throwable => Nil }))
       .map(_.flatten.toSet)
 
   def readSequenceNrBatches(persistenceId: String, highest: Boolean): Iterator[Future[BatchGetItemResult]] =
