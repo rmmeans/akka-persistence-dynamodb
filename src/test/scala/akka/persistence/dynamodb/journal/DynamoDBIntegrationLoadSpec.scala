@@ -7,12 +7,9 @@ import java.util.UUID
 import akka.actor._
 import akka.persistence._
 import akka.testkit._
-import com.amazonaws.services.dynamodbv2.model.{ CreateTableRequest, DeleteTableRequest, ListTablesRequest, ProvisionedThroughput }
-import com.typesafe.config.{ Config, ConfigFactory, ConfigValueFactory }
+import com.typesafe.config.ConfigFactory
 import org.scalatest._
-import scala.concurrent.Await
-import scala.concurrent.duration._
-import scala.concurrent.Future
+import akka.persistence.dynamodb.IntegSpec
 
 /**
  * This class is pulled from https://github.com/krasserm/akka-persistence-cassandra/
@@ -23,13 +20,15 @@ object DynamoDBIntegrationLoadSpec {
   val config = ConfigFactory.parseString("""
 my-dynamodb-journal {
   journal-table = "integrationLoadSpec"
+  endpoint =  "http://localhost:8888"
   endpoint = ${?AWS_DYNAMODB_ENDPOINT}
   aws-access-key-id = "set something in case no real creds are there"
   aws-access-key-id = ${?AWS_ACCESS_KEY_ID}
   aws-secret-access-key = "set something in case no real creds are there"
   aws-secret-access-key = ${?AWS_SECRET_ACCESS_KEY}
 }
-""").resolve.withFallback(ConfigFactory.load())
+akka.persistence.snapshot-store.plugin = ""
+""").withFallback(ConfigFactory.load()).resolve()
 
   case class DeleteTo(snr: Long)
 
@@ -105,17 +104,6 @@ my-dynamodb-journal {
     override def preStart() = ()
   }
 
-  class ViewA(val viewId: String, val persistenceId: String, probe: ActorRef) extends PersistentView {
-    def receive = {
-      case payload =>
-        probe ! payload
-    }
-
-    override def autoUpdate: Boolean = false
-
-    override def autoUpdateReplayMax: Long = 0
-  }
-
   class Listener extends Actor {
     def receive = {
       case d: DeadLetter => println(d)
@@ -131,7 +119,8 @@ class DynamoDBIntegrationLoadSpec
     with WordSpecLike
     with Matchers
     with BeforeAndAfterAll
-    with DynamoDBUtils {
+    with DynamoDBUtils
+    with IntegSpec {
 
   override def beforeAll(): Unit = {
     super.beforeAll()
@@ -141,6 +130,7 @@ class DynamoDBIntegrationLoadSpec
   override def afterAll(): Unit = {
     client.shutdown()
     system.terminate()
+    super.afterAll()
   }
 
   def subscribeToRangeDeletion(probe: TestProbe): Unit =
@@ -198,7 +188,9 @@ class DynamoDBIntegrationLoadSpec
       val persistenceId = UUID.randomUUID().toString
       testRangeDelete(persistenceId)
     }
-    "replay messages incrementally" in {
+    /* TODO Replace this with equivalent test
+
+     "replay messages incrementally" in {
       val persistenceId = UUID.randomUUID().toString
       val probe = TestProbe()
       val processor1 = system.actorOf(Props(classOf[ProcessorA], persistenceId, self))
@@ -210,18 +202,18 @@ class DynamoDBIntegrationLoadSpec
       val view = system.actorOf(Props(classOf[ViewA], "p7-view", persistenceId, probe.ref))
       probe.expectNoMsg(200.millis)
 
-      view ! Update(await     = true, replayMax = 3L)
+      view ! Update(await = true, replayMax = 3L)
       probe.expectMsg(s"a-1")
       probe.expectMsg(s"a-2")
       probe.expectMsg(s"a-3")
       probe.expectNoMsg(200.millis)
 
-      view ! Update(await     = true, replayMax = 3L)
+      view ! Update(await = true, replayMax = 3L)
       probe.expectMsg(s"a-4")
       probe.expectMsg(s"a-5")
       probe.expectMsg(s"a-6")
       probe.expectNoMsg(200.millis)
-    }
+    } */
     "write and replay with persistAll greater than partition size skipping whole partition" in {
       val persistenceId = UUID.randomUUID().toString
       val probe = TestProbe()

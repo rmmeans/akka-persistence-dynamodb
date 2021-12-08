@@ -3,14 +3,13 @@
  */
 package akka.persistence.dynamodb.journal
 
-import org.scalactic.ConversionCheckedTripleEquals
+import org.scalactic.TypeCheckedTripleEquals
 import org.scalatest._
 import org.scalatest.concurrent.ScalaFutures
 import akka.actor.ActorSystem
 import akka.persistence._
 import akka.persistence.JournalProtocol._
 import akka.testkit._
-import akka.persistence.journal.AsyncWriteTarget.ReplaySuccess
 import com.amazonaws.services.dynamodbv2.model._
 import java.util.{ HashMap => JHMap }
 import akka.persistence.dynamodb._
@@ -21,13 +20,19 @@ class RecoveryConsistencySpec extends TestKit(ActorSystem("FailureReportingSpec"
     with BeforeAndAfterAll
     with Matchers
     with ScalaFutures
-    with ConversionCheckedTripleEquals
-    with DynamoDBUtils {
+    with TypeCheckedTripleEquals
+    with DynamoDBUtils
+    with IntegSpec {
 
-  override def beforeAll(): Unit = ensureJournalTableExists()
+  override def beforeAll(): Unit = {
+    super.beforeAll()
+    ensureJournalTableExists()
+  }
+
   override def afterAll(): Unit = {
     client.shutdown()
     system.terminate().futureValue
+    super.afterAll()
   }
 
   override val persistenceId = "RecoveryConsistencySpec"
@@ -48,7 +53,7 @@ class RecoveryConsistencySpec extends TestKit(ActorSystem("FailureReportingSpec"
       journal ! WriteMessages(writes, testActor, 1)
       journal ! ReplayMessages(1, 0, Long.MaxValue, persistenceId, probe.ref)
       expectMsg(WriteMessagesSuccessful)
-      (1 to messages) foreach (i => expectMsgType[WriteMessageSuccess].persistent.sequenceNr should ===(i))
+      (1 to messages) foreach (i => expectMsgType[WriteMessageSuccess].persistent.sequenceNr.toInt should ===(i))
       probe.expectMsg(RecoverySuccess(messages))
     }
 

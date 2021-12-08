@@ -3,19 +3,22 @@
  */
 package akka.persistence.dynamodb.journal
 
+import org.scalactic.TypeCheckedTripleEquals
 import org.scalatest._
 import org.scalatest.concurrent.ScalaFutures
-import org.scalactic.ConversionCheckedTripleEquals
+
 import akka.actor._
 import akka.testkit._
-import scala.concurrent.duration._
-import com.typesafe.config.ConfigFactory
-import akka.persistence._
-import com.amazonaws.services.dynamodbv2.model._
 import akka.event.Logging
+import akka.persistence._
 import akka.persistence.JournalProtocol._
-import java.util.UUID
+
+import scala.concurrent.duration._
 import scala.collection.JavaConverters._
+
+import com.amazonaws.services.dynamodbv2.model._
+import com.typesafe.config.ConfigFactory
+
 import akka.persistence.dynamodb._
 
 class FailureReportingSpec extends TestKit(ActorSystem("FailureReportingSpec"))
@@ -24,8 +27,9 @@ class FailureReportingSpec extends TestKit(ActorSystem("FailureReportingSpec"))
     with BeforeAndAfterAll
     with Matchers
     with ScalaFutures
-    with ConversionCheckedTripleEquals
-    with DynamoDBUtils {
+    with TypeCheckedTripleEquals
+    with DynamoDBUtils
+    with IntegSpec {
 
   implicit val patience = PatienceConfig(5.seconds)
 
@@ -47,10 +51,15 @@ class FailureReportingSpec extends TestKit(ActorSystem("FailureReportingSpec"))
     rej.cause.getMessage should include regex msg
   }
 
-  override def beforeAll(): Unit = ensureJournalTableExists()
+  override def beforeAll(): Unit = {
+    super.beforeAll()
+    ensureJournalTableExists()
+  }
+
   override def afterAll(): Unit = {
     client.shutdown()
     system.terminate().futureValue
+    super.afterAll()
   }
 
   "DynamoDB Journal Failure Reporting" must {
@@ -101,11 +110,12 @@ class FailureReportingSpec extends TestKit(ActorSystem("FailureReportingSpec"))
     }
 
     "not notify user about config errors when starting the default journal" in {
-      val config = ConfigFactory.parseString("""
+      val config = ConfigFactory.parseString(
+        """
 dynamodb-journal {
-  endpoint = "http://localhost:8000"
-  aws-access-key-id = "set something in case no real creds are there"
-  aws-secret-access-key = "set something in case no real creds are there"
+  endpoint = "http://localhost:8888"
+  aws-access-key-id = "AWS_ACCESS_KEY_ID"
+  aws-secret-access-key = "AWS_SECRET_ACCESS_KEY"
 }
 akka.persistence.journal.plugin = "dynamodb-journal"
 akka.persistence.snapshot-store.plugin = "no-snapshot-store"
@@ -186,6 +196,7 @@ akka.loggers = ["akka.testkit.TestEventListener"]
     "have sensible error messages" when {
       import client._
       def desc[T](aws: T)(implicit d: Describe[_ >: T]): String = d.desc(aws)
+
       val keyItem = Map(Key -> S("TheKey"), Sort -> N("42")).asJava
       val key2Item = Map(Key -> S("The2Key"), Sort -> N("43")).asJava
 

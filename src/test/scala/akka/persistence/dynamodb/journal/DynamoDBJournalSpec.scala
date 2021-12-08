@@ -4,16 +4,15 @@
 package akka.persistence.dynamodb.journal
 
 import akka.persistence.journal.JournalSpec
-import com.amazonaws.services.dynamodbv2.model.{ CreateTableRequest, DeleteTableRequest, ListTablesRequest, ProvisionedThroughput }
 import com.typesafe.config.ConfigFactory
 import scala.concurrent.Await
 import scala.concurrent.duration._
 import akka.persistence.CapabilityFlag
-import scala.concurrent.Future
 import akka.pattern.extended.ask
 import akka.actor.ActorRef
+import akka.persistence.dynamodb.IntegSpec
 
-class DynamoDBJournalSpec extends JournalSpec(ConfigFactory.load()) with DynamoDBUtils {
+class DynamoDBJournalSpec extends JournalSpec(ConfigFactory.load()) with DynamoDBUtils with IntegSpec {
 
   override def beforeAll(): Unit = {
     super.beforeAll()
@@ -21,8 +20,8 @@ class DynamoDBJournalSpec extends JournalSpec(ConfigFactory.load()) with DynamoD
   }
 
   override def afterAll(): Unit = {
-    super.afterAll()
     client.shutdown()
+    super.afterAll()
   }
 
   override def writeMessages(fromSnr: Int, toSnr: Int, pid: String, sender: ActorRef, writerUuid: String): Unit = {
